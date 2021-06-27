@@ -77,10 +77,56 @@ namespace Telegram_TimeSpanBot
                 "/begin" => StartTimeSpan(message),
                 "/stop" => StopTimeSpan(message),
                 "/sum" => Sum(message),
+                "/add" => Add(message),
                 _ => Usage(message)
             };
             var sentMessage = await action;
             Console.WriteLine($"The message was sent with id: {sentMessage.MessageId}");
+        }
+
+        private static async Task<Message> Add(Message message)
+        {
+            await Bot.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
+
+            var trimMessage = message.Text.Trim();
+            if (!trimMessage.Contains(' ') || trimMessage.Split(' ').Length < 2)
+                return await BedAddArgumentsMessage();
+
+            var firstSpace = trimMessage.IndexOf(' ') + 1;
+            var input = trimMessage[firstSpace..].Split(';');
+
+
+            DateTime start, end;
+            TimeSpan timeSpan;
+            switch (input.Length)
+            {
+                case 1:
+                    if (!TimeSpan.TryParse(input[0].Trim(), out timeSpan))
+                        return await BedAddArgumentsMessage();
+                    start = DateTime.Today;
+                    end = start + timeSpan;
+                    break;
+                case 2:
+                    if (!DateTime.TryParse(input[0].Trim(), out start))
+                        return await BedAddArgumentsMessage();
+                    if (!TimeSpan.TryParse(input[1].Trim(), out timeSpan))
+                        return await BedAddArgumentsMessage();
+                    end = start + timeSpan;
+                    break;
+                default:
+                    return await BedAddArgumentsMessage();
+            }
+
+            await DbWorker.AddTimeSpan(message.Chat.Id, start, end);
+            return await Bot.SendTextMessageAsync(message.Chat.Id,
+                $"Add timeSpan {start:s} to {end:s}");
+
+            async Task<Message> BedAddArgumentsMessage()
+            {
+                return await Bot.SendTextMessageAsync(message.Chat.Id,
+                    @"Wrong input. Try `/add 4:50` or `/add 20.06.21 10:00;4:52`",
+                    parseMode: ParseMode.Markdown);
+            }
         }
 
         private static async Task<Message> StartTimeSpan(Message message)
@@ -155,7 +201,7 @@ namespace Telegram_TimeSpanBot
             async Task<Message> BedSumArgumentsMessage()
             {
                 return await Bot.SendTextMessageAsync(message.Chat.Id,
-                    @"Wrong input. Try `/sum 20.06 :10:00;25.06 21:00` or `/sum 20.06 :10:00`",
+                    @"Wrong input. Try `/sum 20.06.21 10:00` or `/sum 20.06.21 10:00;25.06.21 21:00`",
                     parseMode: ParseMode.Markdown);
             }
         }

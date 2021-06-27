@@ -58,5 +58,12 @@ namespace Telegram_TimeSpanBot
 
             return res;
         }
+
+        public static async Task AddTimeSpan(long chatId,DateTime start, DateTime end)
+        {
+            await using var context = new TimeSpanDBContext();
+            await context.TimeSpans.AddAsync(new TimeSpanUnit() {ChatId = chatId, StartTime = start, StopTime = end});
+            await context.SaveChangesAsync();
+        }
     }
 }
