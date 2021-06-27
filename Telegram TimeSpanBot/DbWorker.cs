@@ -35,27 +35,26 @@ namespace Telegram_TimeSpanBot
             await using var context = new TimeSpanDBContext();
             var tmp = await GetTimeSpanUnit(chatId, messageId);
             tmp.StopTime = timeStop;
+            context.Entry(tmp).State = EntityState.Modified;
             await context.SaveChangesAsync();
         }
 
         private static async Task<TimeSpanUnit> GetTimeSpanUnit(long chatId, int messageId)
         {
-            TimeSpanUnit res;
             await using var context = new TimeSpanDBContext();
             var timeSpanByMessageId = await context.TimeSpans.FirstOrDefaultAsync(x => x.MessageId == messageId);
             var timeSpanByChatId = context.TimeSpans.OrderBy(o => o.StartTime).Last(x => x.ChatId == chatId);
 
-            res = timeSpanByMessageId ?? timeSpanByChatId;
+            var res = timeSpanByMessageId ?? timeSpanByChatId;
 
             return res;
         }
 
         public static async Task<TimeSpan> GetTimeSpan(long chatId, int messageId)
         {
-            TimeSpan res;
             await using var context = new TimeSpanDBContext();
             var tmp = await GetTimeSpanUnit(chatId, messageId);
-            res = tmp.StopTime - tmp.StartTime;
+            var res = tmp.StopTime - tmp.StartTime;
 
             return res;
         }

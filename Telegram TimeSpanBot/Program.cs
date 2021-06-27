@@ -36,7 +36,7 @@ namespace Telegram_TimeSpanBot
             cts.Cancel();
         }
 
-        public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,
+        private static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,
             CancellationToken cancellationToken)
         {
             var handler = update.Type switch
@@ -122,39 +122,49 @@ namespace Telegram_TimeSpanBot
         {
             await Bot.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
 
-            var input = message.Text.Trim().Substring(message.Text.Trim().IndexOf(' ')).Split(';');
+            var trimMessage = message.Text.Trim();
+            if (!trimMessage.Contains(' ') || trimMessage.Split(' ').Length < 2)
+                return await BedSumArgumentsMessage();
+
+            var firstSpace = trimMessage.IndexOf(' ');
+            var input = trimMessage[firstSpace..].Split(';');
 
 
             DateTime start, end;
             switch (input.Length)
             {
-                case 0:
-                    return await Bot.SendTextMessageAsync(message.Chat.Id,
-                        "Wrong input. Try '/sum [date time start];[date time end]' or '/sum [date time start]'");
                 case 1:
-                    start = DateTime.Parse(input[1]);
+                    if (!DateTime.TryParse(input[0], out start))
+                        return await BedSumArgumentsMessage();
                     end = DateTime.Now;
                     break;
                 case 2:
-                    start = DateTime.Parse(input[1]);
-                    end = DateTime.Parse(input[2]);
+                    if (!DateTime.TryParse(input[0], out start))
+                        return await BedSumArgumentsMessage();
+                    if (!DateTime.TryParse(input[1], out end))
+                        return await BedSumArgumentsMessage();
                     break;
                 default:
-                    return await Bot.SendTextMessageAsync(message.Chat.Id,
-                        "Wrong input.");
+                    return await BedSumArgumentsMessage();
             }
 
             var totalTimeSpan = await DbWorker.GetTimeSpanAtInterval(start, end);
             return await Bot.SendTextMessageAsync(message.Chat.Id,
                 $"Total timeSpan {totalTimeSpan:dd\\.hh\\:mm\\:ss}");
+
+            async Task<Message> BedSumArgumentsMessage()
+            {
+                return await Bot.SendTextMessageAsync(message.Chat.Id,
+                    @"Wrong input. Try `/sum 20.06 :10:00;25.06 21:00` or `/sum 20.06 :10:00`",
+                    parseMode: ParseMode.Markdown);
+            }
         }
 
         private static async Task<Message> Usage(Message message)
         {
             var commands = await Bot.GetMyCommandsAsync();
 
-            var commandsStr = "";
-            foreach (var botCommand in commands) commandsStr += $"{botCommand.Command} - {botCommand.Description}\n";
+            var commandsStr = commands.Aggregate("", (current, botCommand) => current + $"{botCommand.Command} - {botCommand.Description}\n");
 
             return await Bot.SendTextMessageAsync(message.Chat.Id,
                 commandsStr,
@@ -168,7 +178,7 @@ namespace Telegram_TimeSpanBot
 
             var action = callbackQuery.Data switch
             {
-                "/stop_time_span" => StopTimeSpan(callbackQuery.Message),
+                "/stop" => StopTimeSpan(callbackQuery.Message),
                 _ => Usage(callbackQuery.Message)
             };
             var sentMessage = await action;
