@@ -126,7 +126,7 @@ namespace Telegram_TimeSpanBot
                 return await Bot.SendTextMessageAsync(message.Chat.Id, "Wrong input. Try `/remove 20`",
                     ParseMode.Markdown);
 
-            var isRemove = await DbWorker.RemoveTimeSpanUnit(id);
+            var isRemove = await DbWorker.RemoveTimeSpanUnit(id, message.Chat.Id);
 
             if (isRemove)
                 return await Bot.SendTextMessageAsync(message.Chat.Id, $"Remove by id {id}");
@@ -138,12 +138,16 @@ namespace Telegram_TimeSpanBot
             var res = await DbWorker.GetListTimeSpanUnits(message.Chat.Id);
 
             string outputStr;
-            if (res.Count>0)
+            if (res.Count > 0)
             {
                 outputStr = "List:\n";
                 foreach (var timeSpanUnit in res)
-                    outputStr +=
-                        $"{timeSpanUnit.Id}) {timeSpanUnit.StartTime:dd\\.hh\\:mm\\:ss} - {timeSpanUnit.StopTime:dd\\.hh\\:mm\\:ss}\n";
+                    if (timeSpanUnit.StartTime.Day ==  timeSpanUnit.StopTime.Day)
+                        outputStr +=
+                            $"{timeSpanUnit.Id}) {timeSpanUnit.StartTime:F} - {timeSpanUnit.StopTime:T}\n";
+                    else 
+                        outputStr +=
+                            $"{timeSpanUnit.Id}) {timeSpanUnit.StartTime:F} - {timeSpanUnit.StopTime:F}\n";
             }
             else
             {
@@ -286,7 +290,7 @@ namespace Telegram_TimeSpanBot
             var commands = await Bot.GetMyCommandsAsync();
 
             var commandsStr = commands.Aggregate("",
-                (current, botCommand) => current + $"{botCommand.Command} - {botCommand.Description}\n");
+                (current, botCommand) => current + $"/{botCommand.Command} - {botCommand.Description}\n");
 
             return await Bot.SendTextMessageAsync(message.Chat.Id,
                 commandsStr,

@@ -137,11 +137,11 @@ namespace Telegram_TimeSpanBot
             return res;
         }
 
-        public static async Task<bool> RemoveTimeSpanUnit(long id)
+        public static async Task<bool> RemoveTimeSpanUnit(long id, long chatId)
         {
             await using var context = new TimeSpanDBContext();
 
-            var timeSpanUnit = context.TimeSpans.FirstOrDefault(x => x.Id == id);
+            var timeSpanUnit = context.TimeSpans.FirstOrDefault(x => x.ChatId == chatId && x.Id == id);
             if (timeSpanUnit == null)
                 return false;
 
