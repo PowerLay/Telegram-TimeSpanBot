@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Device.Location;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
@@ -73,11 +74,17 @@ namespace Telegram_TimeSpanBot
             var response = message.Type switch
             {
                 MessageType.Text => ReceivedText(message),
-                MessageType.Location => ReceivedLocation(message)
+                MessageType.Location => ReceivedLocation(message),
+                _ => UnknownMessageType()
             };
 
 
             await response;
+        }
+
+        private static async Task UnknownMessageType()
+        {
+            return;
         }
 
         private static async Task ReceivedLocation(Message message)
