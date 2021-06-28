@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Device.Location;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -68,20 +69,94 @@ namespace Telegram_TimeSpanBot
         private static async Task BotOnMessageReceived(Message message)
         {
             Console.WriteLine($"Receive message type: {message.Type}");
-            if (message.Type != MessageType.Text)
-                return;
-            Console.WriteLine($"Receive message text: {message.Text}");
 
+            var response = message.Type switch
+            {
+                MessageType.Text => ReceivedText(message),
+                MessageType.Location => ReceivedLocation(message)
+            };
+
+
+            await response;
+        }
+
+        private static async Task ReceivedLocation(Message message)
+        {
+            var location = message.Location;
+            Console.WriteLine(
+                $"Receive message Location: {message.MessageId} '{location.Latitude}:{location.Longitude}' live period {location.LivePeriod:# sec}");
+            var coord = new GeoCoordinate(location.Latitude, location.Latitude);
+            var isUntilAtStartPos = await DbWorker.CheckCoord(message.MessageId, coord);
+            if (!isUntilAtStartPos)
+            {
+                var locationTimeSpanUnit = await DbWorker.GetLocationTimeSpanUnit(message.MessageId);
+
+                await DbWorker.AddTimeSpan(message.Chat.Id, locationTimeSpanUnit.StartTime,
+                    locationTimeSpanUnit.StopTime);
+
+                var sentMessage = await Bot.SendTextMessageAsync(message.Chat.Id,
+                    $"Add time span {locationTimeSpanUnit.StartTime - locationTimeSpanUnit.StopTime:dd\\.hh\\:mm\\:ss}");
+                ;
+                Console.WriteLine($"The message was sent with id: {sentMessage.MessageId}");
+            }
+        }
+
+        private static async Task ReceivedText(Message message)
+        {
+            Console.WriteLine($"Receive message text: {message.Text}");
             var action = message.Text.Split(' ').First() switch
             {
                 "/begin" => StartTimeSpan(message),
                 "/stop" => StopTimeSpan(message),
                 "/sum" => Sum(message),
                 "/add" => Add(message),
+                "/location" => RequestLocation(message),
+                "/list" => ListOfTimeSpans(message),
+                "/remove" => RemoveTimeSpan(message),
                 _ => Usage(message)
             };
             var sentMessage = await action;
             Console.WriteLine($"The message was sent with id: {sentMessage.MessageId}");
+        }
+
+        private static async Task<Message> RemoveTimeSpan(Message message)
+        {
+            var input = message.Text.Trim().Split(" ");
+            if (input.Length < 2 || !long.TryParse(input[1].Trim(), out var id))
+                return await Bot.SendTextMessageAsync(message.Chat.Id, "Wrong input. Try `/remove 20`",
+                    ParseMode.Markdown);
+
+            var isRemove = await DbWorker.RemoveTimeSpanUnit(id);
+
+            if (isRemove)
+                return await Bot.SendTextMessageAsync(message.Chat.Id, $"Remove by id {id}");
+            return await Bot.SendTextMessageAsync(message.Chat.Id, $"Not found by id {id}");
+        }
+
+        private static async Task<Message> ListOfTimeSpans(Message message)
+        {
+            var res = await DbWorker.GetListTimeSpanUnits(message.Chat.Id);
+
+            string outputStr;
+            if (res.Count>0)
+            {
+                outputStr = "List:\n";
+                foreach (var timeSpanUnit in res)
+                    outputStr +=
+                        $"{timeSpanUnit.Id}) {timeSpanUnit.StartTime:dd\\.hh\\:mm\\:ss} - {timeSpanUnit.StopTime:dd\\.hh\\:mm\\:ss}\n";
+            }
+            else
+            {
+                outputStr = "List is empty.";
+            }
+            return await Bot.SendTextMessageAsync(message.Chat.Id, outputStr);
+        }
+
+        private static async Task<Message> RequestLocation(Message message)
+        {
+            return await Bot.SendTextMessageAsync(message.Chat.Id,
+                "Send live location",
+                replyToMessageId: message.MessageId);
         }
 
         private static async Task<Message> Add(Message message)
@@ -125,7 +200,7 @@ namespace Telegram_TimeSpanBot
             {
                 return await Bot.SendTextMessageAsync(message.Chat.Id,
                     @"Wrong input. Try `/add 4:50` or `/add 20.06.21 10:00;4:52`",
-                    parseMode: ParseMode.Markdown);
+                    ParseMode.Markdown);
             }
         }
 
@@ -202,7 +277,7 @@ namespace Telegram_TimeSpanBot
             {
                 return await Bot.SendTextMessageAsync(message.Chat.Id,
                     @"Wrong input. Try `/sum 20.06.21 10:00` or `/sum 20.06.21 10:00;25.06.21 21:00`",
-                    parseMode: ParseMode.Markdown);
+                    ParseMode.Markdown);
             }
         }
 
@@ -210,7 +285,8 @@ namespace Telegram_TimeSpanBot
         {
             var commands = await Bot.GetMyCommandsAsync();
 
-            var commandsStr = commands.Aggregate("", (current, botCommand) => current + $"{botCommand.Command} - {botCommand.Description}\n");
+            var commandsStr = commands.Aggregate("",
+                (current, botCommand) => current + $"{botCommand.Command} - {botCommand.Description}\n");
 
             return await Bot.SendTextMessageAsync(message.Chat.Id,
                 commandsStr,

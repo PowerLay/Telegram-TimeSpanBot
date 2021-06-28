@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Telegram_TimeSpanBot.TimeSpansDB;
 
 namespace Telegram_TimeSpanBot.Migrations
 {
     [DbContext(typeof(TimeSpanDBContext))]
-    partial class TimeSpanDBContextModelSnapshot : ModelSnapshot
+    [Migration("20210627195709_addLocations")]
+    partial class addLocations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -5,6 +5,7 @@ namespace Telegram_TimeSpanBot.TimeSpansDB
     public class TimeSpanDBContext : DbContext
     {
         public DbSet<TimeSpanUnit> TimeSpans { get; set; }
+        public DbSet<location> Locations { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
